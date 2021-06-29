@@ -104,6 +104,8 @@ namespace ngr
                                           VkImageSubresourceRange subresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
                                           VkImageViewCreateInfo image_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, images[i], VK_IMAGE_VIEW_TYPE_2D, swapchain->vk_surface_format.format, components, subresource};
                                           swapchain->textures[i]->vk_image = images[i];
+                                          swapchain->textures[i]->vma_allocation = VMA_NULL;
+                                          swapchain->textures[i]->map = nullptr;
                                           vk_assert(software_device->func.vk_create_image_view(software_device->vk_device, &image_info, nullptr, &swapchain->textures[i]->vk_image_view));
                                    }
                                    return swapchain;

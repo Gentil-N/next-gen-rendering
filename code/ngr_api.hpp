@@ -100,9 +100,9 @@ namespace ngr
 
                      HardwareDevice get(Driver driver, std::uint32_t index);
 
-                     bool is_swapchain_extension_supported(HardwareDevice hardware_device);
+                     bool is_swapchain_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link); // check for present queue
 
-                     bool is_win_link_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link); // check for present queue
+                     //bool is_win_link_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link); // check for present queue
 
                      bool has_graphics_queue(HardwareDevice hardware_device);
 
@@ -129,16 +129,14 @@ namespace ngr
 
                      struct CreateInfo
                      {
+                            HardwareDevice hardware_device;
                             bool request_graphics_queue;
                             bool request_compute_queue;
                             bool request_transfer_queue;
-                            bool request_present_queue;
+                            bool request_swapchain_extension; // request present queue
                             ext::WinLink win_link;
-                            bool request_swapchain_extension;
-                            HardwareDevice hardware_device;
                      };
 
-                     /*impl : automatic features from physical device*/
                      SoftwareDevice create(Driver driver, const CreateInfo &create_info);
 
                      void destroy(SoftwareDevice software_device);
@@ -158,8 +156,6 @@ namespace ngr
                      Queue compute(SoftwareDevice software_device);
 
                      Queue transfer(SoftwareDevice software_device);
-
-                     //Queue* present(SoftwareDevice* software_device);
 
                      void wait(SoftwareDevice software_device, Queue queue);
               }
@@ -191,9 +187,11 @@ namespace ngr
 
                      void destroy(SoftwareDevice software_device, Buffer buffer);
 
-                     void map(SoftwareDevice software_device, Buffer buffer);
+                     void *map(SoftwareDevice software_device, Buffer buffer);
 
                      void unmap(SoftwareDevice software_device, Buffer buffer);
+
+                     void *get_map(Buffer buffer);
               }
 
               namespace texture
@@ -315,11 +313,11 @@ namespace ngr
                             RGBA_64_SFLOAT,
 
                             D16_UNORM,
-                            D32_UNORM,
+                            D32_SFLOAT,
                             S8_UINT,
                             D16_UNORM_S8_UINT,
                             D24_UNORM_S8_UINT,
-                            D32_UNORM_S8_UINT
+                            D32_SFLOAT_S8_UINT
                      };
 
                      enum class Layout
@@ -358,6 +356,7 @@ namespace ngr
                      {
                             software_device::MemoryType memory_type;
                             Format format;
+                            bool tiling_linear;
                             Usage usage;
                             /*impl : aspect detected from usage*/
                             std::uint32_t mip_level_count;
@@ -389,11 +388,12 @@ namespace ngr
 
                      struct CreateInfoCube : CreateInfoBase
                      {
+                            // 6 layers
                      };
 
                      struct CreateInfoCubeArray : CreateInfoCube
                      {
-                            std::uint32_t array_layer_cube_count; //array_layer_count = array_layer_cube_count * 6
+                            std::uint32_t array_layer_cube_count; // 'array_layer_count = array_layer_cube_count * 6'
                      };
 
                      struct CreateInfo3D : CreateInfoBase
@@ -416,6 +416,12 @@ namespace ngr
                      Texture create_3d(SoftwareDevice software_device, const CreateInfo3D &create_info_3d);
 
                      void destroy(SoftwareDevice software_device, Texture texture);
+
+                     void *map(SoftwareDevice software_device, Texture texture);
+
+                     void unmap(SoftwareDevice software_device, Texture texture);
+
+                     void *get_map(Texture texture);
 
                      struct CreateInfoSampler
                      {
@@ -464,7 +470,7 @@ namespace ngr
                             const AttachmentReference *resolve_attachment;
                             const AttachmentReference *depth_stencil_attachment;
                             std::uint32_t preserve_attachment_count;
-                            const AttachmentReference *preserve_attachments;
+                            const std::uint32_t *preserve_attachments;
                      };
 
                      struct SubpassDependency
@@ -586,21 +592,21 @@ namespace ngr
 
                      enum class Stage : std::uint32_t
                      {
-                            TOP_OF_PIPE = 0x00000001,
-                            DRAW_INDIRECT = 0x00000002,
-                            VERTEX_INPUT = 0x00000004,
-                            VERTEX_SHADER = 0x00000008,
-                            TESSELLATION_CONTROL_SHADER = 0x00000010,
-                            TESSELLATION_EVALUATION_SHADER = 0x00000020,
-                            GEOMETRY_SHADER = 0x00000040,
-                            FRAGMENT_SHADER = 0x00000080,
-                            EARLY_FRAGMENT_TESTS = 0x00000100,
-                            LATE_FRAGMENT_TESTS = 0x00000200,
-                            COLOR_ATTACHMENT = 0x00000400,
-                            COMPUTE_SHADER = 0x00000800,
-                            TRANSFER = 0x00001000,
-                            BOTTOM_OF_PIPE = 0x00002000,
-                            HOST = 0x00004000,
+                            TOP_OF_PIPE = 0x1,
+                            DRAW_INDIRECT = 0x2,
+                            VERTEX_INPUT = 0x4,
+                            VERTEX_SHADER = 0x8,
+                            TESSELLATION_CONTROL_SHADER = 0x10,
+                            TESSELLATION_EVALUATION_SHADER = 0x20,
+                            GEOMETRY_SHADER = 0x40,
+                            FRAGMENT_SHADER = 0x80,
+                            EARLY_FRAGMENT_TESTS = 0x100,
+                            LATE_FRAGMENT_TESTS = 0x200,
+                            COLOR_ATTACHMENT = 0x400,
+                            COMPUTE_SHADER = 0x800,
+                            TRANSFER = 0x1000,
+                            BOTTOM_OF_PIPE = 0x2000,
+                            HOST = 0x4000,
                      };
                      NGR_DEF_ENUM_OR_BIT_FLAGS(Stage, std::uint32_t);
                      NGR_DEF_ENUM_AND_BIT_FLAGS(Stage, std::uint32_t);
@@ -780,11 +786,11 @@ namespace ngr
                      void bind_uniform_set(Command command, pipeline::Type pipeline_type, UniformSet uniform_set);
 
                      /*'first_set_index' overrides set_index from uniform sets*/
-                     void bind_multiple_uniform_set(Command command, std::uint32_t first_set_index, UniformSet *uniform_sets, std::uint32_t uniform_set_count);
+                     //void bind_multiple_uniform_set(Command command, std::uint32_t first_set_index, UniformSet *uniform_sets, std::uint32_t uniform_set_count);
 
                      void bind_vertex_buffers(Command command, std::uint64_t *offsets, Buffer *buffers, std::uint32_t buffer_count);
 
-                     void bind_index_buffers(Command command, std::uint64_t offset, bool is_uint32, Buffer buffer);
+                     void bind_index_buffer(Command command, std::uint64_t offset, bool is_uint32, Buffer buffer);
 
                      void draw_indexed(
                          Command command, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t firest_index, std::int32_t vertex_offset,

@@ -169,13 +169,14 @@ namespace ngr
                                    software_device->transfer_queue = nullptr;
                             }
                             std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-                            if (!get_queues(create_info.hardware_device, queue_infos, create_info.request_present_queue, create_info.win_link, queue_create_infos))
+                            if (!get_queues(create_info.hardware_device, queue_infos, create_info.request_swapchain_extension, create_info.win_link, queue_create_infos))
                             {
                                    return nullptr;
                             }
                             std::vector<std::vector<float>> priorities(queue_create_infos.size());
                             software_device->queue_family_indices.resize(queue_create_infos.size());
                             software_device->has_unique_queue = (queue_create_infos.size() == 1);
+                            software_device->vk_sharing_mode = priorities.empty() ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
                             for (size_t i = 0; i < priorities.size(); ++i)
                             {
                                    priorities[i].resize(queue_create_infos[i].queueCount);
@@ -344,7 +345,7 @@ namespace ngr
                                    }
                                    }
                             }
-                            if (create_info.request_present_queue)
+                            if (create_info.request_swapchain_extension)
                             {
                                    software_device->present_queue = new Queue_I();
                                    software_device->present_queue->types = 0;
@@ -354,20 +355,36 @@ namespace ngr
                             {
                                    software_device->present_queue = nullptr;
                             }
+
+                            VmaVulkanFunctions vma_func = {
+                                driver->func.vk_get_physical_device_properties, driver->func.vk_get_physical_device_memory_properties,
+                                software_device->func.vk_allocate_memory, software_device->func.vk_free_memory, software_device->func.vk_map_memory, software_device->func.vk_unmap_memory,
+                                software_device->func.vk_flush_mapped_memory_ranges, software_device->func.vk_invalidate_mapped_memory_ranges, software_device->func.vk_bind_buffer_memory,
+                                software_device->func.vk_bind_image_memory, software_device->func.vk_get_buffer_memory_requirements, software_device->func.vk_get_image_memory_requirements,
+                                software_device->func.vk_create_buffer, software_device->func.vk_destroy_buffer, software_device->func.vk_create_image, software_device->func.vk_destroy_image,
+                                software_device->func.vk_cmd_copy_buffer, nullptr, nullptr, nullptr, nullptr, nullptr};
+                            VmaAllocatorCreateInfo vma_info{0};
+                            vma_info.instance = driver->vk_instance;
+                            vma_info.physicalDevice = create_info.hardware_device->vk_physical_device;
+                            vma_info.device = software_device->vk_device;
+                            vma_info.vulkanApiVersion = VK_API_VERSION_1_0;
+                            vma_info.pVulkanFunctions = &vma_func;
+                            vk_assert(vmaCreateAllocator(&vma_info, &software_device->vma_allocator));
                             return software_device;
                      }
 
                      void destroy(SoftwareDevice software_device)
                      {
-                            if(software_device->graphics_queue)
+                            vmaDestroyAllocator(software_device->vma_allocator);
+                            if (software_device->graphics_queue)
                             {
                                    software_device->func.vk_destroy_command_pool(software_device->vk_device, software_device->graphics_queue->vk_command_pool, nullptr);
                             }
-                            if(software_device->compute_queue)
+                            if (software_device->compute_queue)
                             {
                                    software_device->func.vk_destroy_command_pool(software_device->vk_device, software_device->compute_queue->vk_command_pool, nullptr);
                             }
-                            if(software_device->transfer_queue)
+                            if (software_device->transfer_queue)
                             {
                                    software_device->func.vk_destroy_command_pool(software_device->vk_device, software_device->transfer_queue->vk_command_pool, nullptr);
                             }

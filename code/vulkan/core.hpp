@@ -15,14 +15,17 @@
 #define VK_NO_PROTOTYPES
 #include "../../external/Vulkan-Headers/include/vulkan/vulkan.h"
 #include "../../external/Vulkan-Headers/include/vulkan/vk_platform.h"
+#include "vk_mem_alloc.h"
 
 #ifndef NDEBUG
 #define vk_assert(expr) assert(expr == VK_SUCCESS)
 #else
 #define vk_assert(expr) expr
 #endif //NDEBUG
+
 #define vk_max(a, b) ((a) > (b) ? (a) : (b))
 #define vk_min(a, b) ((a) < (b) ? (a) : (b))
+#define vk_bitwise_contain(flags, unique_flag) ((flags & unique_flag) == unique_flag)
 
 namespace ngr
 {
@@ -216,8 +219,10 @@ namespace ngr
                             PFN_vkQueuePresentKHR vk_queue_present_khr;
                      } func;
                      bool has_unique_queue;
+                     VkSharingMode vk_sharing_mode;
                      std::vector<std::uint32_t> queue_family_indices;
                      Queue graphics_queue, compute_queue, transfer_queue, present_queue;
+                     VmaAllocator vma_allocator;
                      std::vector<std::function<void(SoftwareDevice)>> operations;
               };
 
@@ -232,23 +237,32 @@ namespace ngr
               };
               struct Buffer_I
               {
+                     VkBuffer vk_buffer;
+                     VmaAllocation vma_allocation;
+                     void *map;
               };
               struct Texture_I
               {
                      VkImage vk_image;
                      VkImageView vk_image_view;
+                     VmaAllocation vma_allocation;
+                     void *map;
               };
               struct Sampler_I
               {
+                     VkSampler vk_sampler;
               };
               struct RenderPass_I
               {
+                     VkRenderPass vk_render_pass;
               };
               struct Framebuffer_I
               {
+                     VkFramebuffer vk_framebuffer;
               };
               struct Shader_I
               {
+                     VkShaderModule vk_shader_module;
               };
               struct PipLink_I
               {
@@ -278,6 +292,28 @@ namespace ngr
                             std::vector<Texture> textures;
                      };
               }
+
+              VmaMemoryUsage switch_device_memory_type(software_device::MemoryType memory_type);
+
+              VkBufferUsageFlags switch_buffer_usage(buffer::Usage usage);
+
+              VkFormat switch_texture_format(texture::Format format);
+
+              VkImageLayout switch_texture_layout(texture::Layout layout);
+
+              VkImageUsageFlags switch_texture_usage(texture::Usage usage);
+
+              VkImageAspectFlags get_image_aspect_from_texture_usage(texture::Usage usage);
+
+              VkShaderStageFlags switch_shader_type(shader::Type type);
+
+              VkAttachmentLoadOp switch_attachment_load_op(render_pass::AttachmentLoadOp load_op);
+
+              VkAttachmentStoreOp switch_attachment_store_op(render_pass::AttachmentStoreOp store_op);
+
+              VkPipelineStageFlags switch_pipeline_stage(pipeline::Stage stage);
+
+              VkAccessFlags switch_pipeline_access(pipeline::Access access);
        }
 }
 

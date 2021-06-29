@@ -53,13 +53,22 @@ namespace ngr
                             return driver->hardware_devices[index];
                      }
 
-                     bool is_swapchain_extension_supported(HardwareDevice hardware_device)
+                     bool is_swapchain_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link)
                      {
-                            std::vector<const char *> swapchain_extension = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-                            return check_physical_device_extensions(hardware_device, swapchain_extension.data(), swapchain_extension.size());
+                            for (size_t i = 0; i < hardware_device->queue_families.size(); ++i)
+                            {
+                                   VkBool32 supported = VK_FALSE;
+                                   vk_assert(hardware_device->vk_get_physical_device_surface_support_khr(hardware_device->vk_physical_device, i, win_link->vk_surface, &supported));
+                                   if(supported == VK_TRUE)
+                                   {
+                                          std::vector<const char *> swapchain_extension = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+                                          return check_physical_device_extensions(hardware_device, swapchain_extension.data(), swapchain_extension.size());
+                                   }
+                            }
+                            return false;
                      }
 
-                     bool is_win_link_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link)
+                     /*bool is_win_link_extension_supported(HardwareDevice hardware_device, ext::WinLink win_link)
                      {
                             for (size_t i = 0; i < hardware_device->queue_families.size(); ++i)
                             {
@@ -71,7 +80,7 @@ namespace ngr
                                    }
                             }
                             return false;
-                     }
+                     }*/
 
                      bool has_graphics_queue(HardwareDevice hardware_device)
                      {
